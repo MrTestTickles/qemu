@@ -1,0 +1,27 @@
+name: build-qemu-macos
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: brew install ninja meson pkg-config glib pixman
+      - name: Configure
+        run: |
+          mkdir build && cd build
+          ../configure --target-list=x86_64-softmmu,aarch64-softmmu --disable-docs
+      - name: Build
+        run: make -C build -j$(sysctl -n hw.ncpu)
+      - name: Package and sign
+        run: |
+          mkdir dist
+          cp build/qemu-system-x86_64 build/qemu-system-aarch64 dist/
+          codesign --force --sign - --entitlements scripts/entitlement.txt dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qemu-macos
+          path: dist/
